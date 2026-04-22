@@ -537,8 +537,8 @@ with st.sidebar:
             team_data["size"][target_loc] = main_size
 
             core_off = team_data["offsets"].get(target_loc, [0.0, 0.0])
-            main_ny = st.slider("Main Nudge Y", -5.0, 5.0, float(core_off[0]), step=0.1)
-            main_nx = st.slider("Main Nudge X", -5.0, 5.0, float(core_off[1]), step=0.1)
+            main_ny = st.slider("Main Nudge Y", -10.0, 10.0, float(core_off[0]), step=0.1)
+            main_nx = st.slider("Main Nudge X", -10.0, 10.0, float(core_off[1]), step=0.1)
             team_data["offsets"][target_loc] = [main_ny, main_nx]
 
             team_data["history"][target_loc] = st.number_input(
