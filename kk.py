@@ -33,7 +33,7 @@ KAGGLE_API_KEY  = st.secrets["kaggle_api_key"]
 # --- COMPETITION CONFIG ---
 STAGE_COMPETITIONS = {
     "Algeria": {
-        "competition":    "FMCG Sales Forecasting Challenge",
+        "competition":    "fmcg-sales-forecasting-challenges",
         "metric":         "WMAE",        # lower is better
         "max_troops":     50000,
         "unlock_threshold": 1000,        # unlock next stage when WMAE < 1000
