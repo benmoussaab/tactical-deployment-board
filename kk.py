@@ -68,9 +68,11 @@ STAGE_COMPETITIONS = {
 CUSTOM_LOGOS = {
     "Fighter Jet":  "https://i.imgur.com/ywf0aun.png",
     "Missile Truck":"https://i.imgur.com/uGvCdKp.png",
-    "Tank":         "https://i.imgur.com/TGHMPxV.png",
+    "Tank1":         "https://i.imgur.com/TGHMPxV.png",
     "Helicopter":   "https://i.imgur.com/EcCleHZ.png",
-    "Submarine":    "https://i.imgur.com/zXC7TnD.png"
+    "Submarine":    "https://i.imgur.com/zXC7TnD.png",
+    "Drone": "https://imgur.com/a/rEucvWU.png",
+    "Tank2": "https://imgur.com/a/pE2sS1B.png"
 }
 
 STAGES = ["Algeria", "Sudan", "Egypt", "Saudi Arabia", "Palestine"]
