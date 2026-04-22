@@ -71,7 +71,7 @@ CUSTOM_LOGOS = {
     "Tank1":         "https://i.imgur.com/TGHMPxV.png",
     "Helicopter":   "https://i.imgur.com/EcCleHZ.png",
     "Submarine":    "https://i.imgur.com/zXC7TnD.png",
-    "Drone": "https://imgur.com/a/vIiInmT",
+    "Drone": "https://imgur.com/X0UfGoB.png",
     "Tank2": "https://imgur.com/vIiInmT.png"
 }
 
