@@ -521,8 +521,8 @@ with st.sidebar:
                 team_data["abilities"][selected_aq]["circle_size"] = aq_circ
 
                 off = team_data["ability_offsets"][selected_aq]
-                aq_ny = st.slider("Ability Nudge Y", -5.0, 5.0, float(off[0]), step=0.1)
-                aq_nx = st.slider("Ability Nudge X", -5.0, 5.0, float(off[1]), step=0.1)
+                aq_ny = st.slider("Ability Nudge Y", -10.0, 10.0, float(off[0]), step=0.1)
+                aq_nx = st.slider("Ability Nudge X", -10.0, 10.0, float(off[1]), step=0.1)
                 team_data["ability_offsets"][selected_aq] = [aq_ny, aq_nx]
 
             # --- CORE PIECE MANAGEMENT ---
