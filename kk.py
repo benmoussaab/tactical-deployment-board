@@ -71,8 +71,8 @@ CUSTOM_LOGOS = {
     "Tank1":         "https://i.imgur.com/TGHMPxV.png",
     "Helicopter":   "https://i.imgur.com/EcCleHZ.png",
     "Submarine":    "https://i.imgur.com/zXC7TnD.png",
-    "Drone": "https://imgur.com/gallery/drone-oPoyFNL#USRgTsy",
-    "Tank2": "https://imgur.com/vIiInmT.png"
+    "Drone": "https://i.imgur.com/X0UfGoB.png",
+    "Tank2": "https://i.imgur.com/pS5yX8Z.png"
 }
 
 STAGES = ["Algeria", "Sudan", "Egypt", "Saudi Arabia", "Palestine"]
