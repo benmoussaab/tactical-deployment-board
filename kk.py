@@ -150,7 +150,7 @@ def compute_troops_for_stage(entries, metric, max_troops):
             troops = int(round(float(np.clip(score, 0.0, 1.0)) * max_troops))
             result[name] = troops
 
-    else:
+     else:
         # Lower-is-better: compute baseline from non-outlier scores
         # Sort ascending: index 0 = best (lowest), index -1 = worst (highest)
         sorted_scores = np.sort(scores_arr)
@@ -162,8 +162,17 @@ def compute_troops_for_stage(entries, metric, max_troops):
         half = max(1, len(trimmed) // 2)
         bottom_half = trimmed[-half:]          # highest values in trimmed = laziest real competitors
         baseline = float(np.median(bottom_half))
+        
+        # --- THE FIX STARTS HERE ---
+        # If baseline equals the absolute best score (meaning there is only 1 player, 
+        # or everyone has the exact same score), give everybody max troops instead of 0.
+        if baseline <= np.min(scores_arr):
+            for name, score in zip(names, scores_arr):
+                result[name] = max_troops
+            return result
+        # --- THE FIX ENDS HERE ---
 
-        # Protect against degenerate baseline (all zeros or identical)
+        # Protect against degenerate baseline (all zeros)
         if baseline < 1e-9:
             baseline = float(np.max(scores_arr)) if np.max(scores_arr) > 1e-9 else 1.0
 
@@ -171,6 +180,7 @@ def compute_troops_for_stage(entries, metric, max_troops):
             score_norm = float(np.clip(score / baseline, 0.0, 1.0))
             troops = int(round((1.0 - score_norm) * max_troops))
             result[name] = max(0, troops)
+
 
     return result
 
