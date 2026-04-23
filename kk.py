@@ -571,10 +571,12 @@ for name, data in st.session_state.teams.items():
          COORDS[l][1] + data["offsets"].get(l, [0, 0])[1]]
         for l in history_locs
     ]
+
+    casualties = data.get("casualties", 0)
     if len(path_coords) > 1:
         folium.PolyLine(path_coords, color=data["color"], weight=3, opacity=0.4, dash_array='10, 5').add_to(m)
 
-        casualties = data.get("casualties", 0)
+        
 
     for loc in history_locs:
         off       = data["offsets"].get(loc, [0.0, 0.0])
