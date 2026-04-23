@@ -11,7 +11,7 @@ KAGGLE_USERNAME = st.secrets["kaggle_username"]
 KAGGLE_API_KEY  = st.secrets["kaggle_api_key"]
 
 # --- COMPETITION CONFIG ---
-# All thresholds are loaded from st.secrets — never hardcoded here
+# All thresholds are loaded from st.secrets — never hardcoded her
 STAGE_COMPETITIONS = {
     "Algeria": {
         "competition":      "fmcg-sales-forecasting",
