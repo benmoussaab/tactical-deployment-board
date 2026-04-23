@@ -167,8 +167,14 @@ def compute_troops_for_stage(entries, metric, max_troops):
             baseline = float(np.max(scores_arr)) if np.max(scores_arr) > 1e-9 else 1.0
 
         for name, score in zip(names, scores_arr):
-            min_score = float(np.min(scores_arr))
-            max_score = float(np.percentile(scores_arr, 90))
+            score_clamped = min(score, max_score)
+
+            score_norm = (score_clamped - min_score) / (max_score - min_score)
+
+    # ✅ HARD CLAMP (critical)
+            score_norm = float(np.clip(score_norm, 0.0, 1.0))
+
+            result[name] = int(round((1.0 - score_norm) * max_troops))
 
 # avoid division by zero
             if abs(max_score - min_score) < 1e-9:
