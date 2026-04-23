@@ -6,8 +6,14 @@ import pandas as pd
 import requests
 
 # --- KAGGLE CONFIG ---
-KAGGLE_USERNAME = "moussaabbensalmi"
-KAGGLE_API_KEY = "0ba2fbdcf1f0d88c9472750313994f24"
+KAGGLE_USERNAME = st.secrets["kaggle_username"]
+KAGGLE_API_KEY  = st.secrets["kaggle_api_key"]
+
+# --- METRIC NOTES ---
+# MAE:  lower is better  → troops = (1 - score/threshold) * max
+# RMSE: lower is better  → troops = (1 - score/threshold) * max
+# CER:  lower is better  → troops = (1 - score/threshold) * max
+# F1:   higher is better → troops = (score/threshold) * max  (threshold = 1.0 max)
 
 # --- COMPETITION CONFIG ---
 STAGE_COMPETITIONS = {
@@ -20,17 +26,17 @@ STAGE_COMPETITIONS = {
     },
     "Sudan": {
         "competition": "Sudan_2",
-        "metric": "MAE",
+        "metric": "CER",
         "max_troops": 50000,
-        "mae_threshold": 1000,
-        "unlock_threshold": 1000,
+        "mae_threshold": 1.0,       # CER is 0-1
+        "unlock_threshold": 1.0,
     },
     "Egypt": {
-        "competition": "tests",
-        "metric": "MAE",
+        "competition": "Egypte",
+        "metric": "F1",
         "max_troops": 50000,
-        "mae_threshold": 1000,
-        "unlock_threshold": 1000,
+        "mae_threshold": 1.0,       # F1 is 0-1
+        "unlock_threshold": 0.5,    # unlock when F1 > 0.5
     },
     "Saudi Arabia": {
         "competition": "bike-demande-competition",
@@ -66,21 +72,58 @@ COORDS = {
 }
 
 SIDE_QUESTS = {
-    "Iraq": {"ability": "Freeze ❄️", "desc": "Stop a rival team's submissions.", "competition": "NeuralX Side Mission: Rise of Nations", "mae_threshold": 500.0},
-    "Libya": {"ability": "Shield 🛡️", "desc": "Protect from sabotage.", "competition": "libya", "mae_threshold": 500.0},
-    "Syria": {"ability": "Intel 👁️", "desc": "Reveal rival submissions.", "competition": "SYRIA-3", "mae_threshold": 500.0},
-    "Yemen": {"ability": "Sabotage 💣", "desc": "Reduce rival troop count.", "competition": "yemen", "mae_threshold": 500.0},
+    "Iraq":  {"ability": "Freeze ❄️",   "desc": "Stop a rival team's submissions.", "competition": "NeuralX Side Mission: Rise of Nations", "metric": "MAE",  "threshold": 500.0},
+    "Libya": {"ability": "Shield 🛡️",   "desc": "Protect from sabotage.",           "competition": "libya",  "metric": "MAE",  "threshold": 500.0},
+    "Syria": {"ability": "Intel 👁️",    "desc": "Reveal rival submissions.",        "competition": "SYRIA-3","metric": "RMSE", "threshold": 500.0},
+    "Yemen": {"ability": "Sabotage 💣", "desc": "Reduce rival troop count.",        "competition": "yemen_", "metric": "F1",   "threshold": 0.5},
 }
 
 if 'teams' not in st.session_state:
     st.session_state.teams = {}
 
-# side_quests_config: { location: { "active": bool } }
+if 'admin_unlocked' not in st.session_state:
+    st.session_state.admin_unlocked = False
+
 if 'side_quests_config' not in st.session_state:
     st.session_state.side_quests_config = {
         loc: {"active": False}
         for loc in SIDE_QUESTS.keys()
     }
+
+# --- METRIC FUNCTIONS ---
+
+def score_to_troops(score, metric, threshold, max_troops):
+    """
+    Convert a raw competition score to troop count based on metric type.
+    Lower-is-better (MAE, RMSE, CER): troops = (1 - score/threshold) * max_troops
+    Higher-is-better (F1):            troops = (score / threshold)   * max_troops
+    """
+    if score is None:
+        return 0
+    metric = metric.upper()
+    if metric in ("MAE", "RMSE", "CER"):
+        return int(max(0.0, (1.0 - score / threshold) * max_troops))
+    elif metric == "F1":
+        return int(max(0.0, min(1.0, score / threshold) * max_troops))
+    else:
+        # Default: lower is better
+        return int(max(0.0, (1.0 - score / threshold) * max_troops))
+
+
+def qualifies_unlock(score, metric, unlock_threshold):
+    """
+    Check if a score crosses the unlock threshold.
+    Lower-is-better: score < threshold
+    Higher-is-better (F1): score >= threshold
+    """
+    if score is None:
+        return False
+    metric = metric.upper()
+    if metric == "F1":
+        return score >= unlock_threshold
+    else:
+        return score < unlock_threshold
+
 
 # --- KAGGLE INTEGRATION FUNCTIONS ---
 
@@ -129,13 +172,6 @@ def fetch_leaderboard_for(competition):
         return None
 
 
-def mae_to_troops(mae, mae_threshold, max_troops):
-    """MAE=0 → max_troops, MAE>=threshold → 0 troops"""
-    if mae is None:
-        return 0
-    return int(max(0.0, (1.0 - mae / mae_threshold) * max_troops))
-
-
 def parse_entries(raw_list):
     """Normalize Kaggle API response to list of {teamName, score, rank}"""
     entries = []
@@ -163,17 +199,15 @@ def evaluate_side_quests(sq_lookups):
             cfg = st.session_state.side_quests_config[loc]
 
             if not cfg["active"]:
-                # Quest not open — remove ability
                 team["abilities"].pop(loc, None)
                 team["ability_offsets"].pop(loc, None)
                 continue
 
-            # Quest is active — check this team's score in the side quest competition
             lookup = sq_lookups.get(loc, {})
             entry  = lookup.get(team_name)
-            mae    = entry["score"] if entry else None
+            score  = entry["score"] if entry else None
 
-            qualifies = mae is not None and mae < info["mae_threshold"]
+            qualifies = qualifies_unlock(score, info["metric"], info["threshold"])
 
             if qualifies and loc not in team["abilities"]:
                 team["abilities"][loc]       = {"size": 40, "circle_size": 10.0, "rotation": 0}
@@ -185,81 +219,65 @@ def evaluate_side_quests(sq_lookups):
 
 def sync_from_kaggle():
     """Sync all stage leaderboards, create/update teams"""
-    algeria_cfg      = STAGE_COMPETITIONS["Algeria"]
-    sudan_cfg        = STAGE_COMPETITIONS["Sudan"]
-    egypt_cfg        = STAGE_COMPETITIONS["Egypt"]
-    saudi_cfg        = STAGE_COMPETITIONS["Saudi Arabia"]
-    palestine_cfg    = STAGE_COMPETITIONS["Palestine"]
+    cfgs = {s: STAGE_COMPETITIONS[s] for s in STAGES}
 
     # Fetch Algeria (required)
-    raw_algeria = fetch_leaderboard_for(algeria_cfg["competition"])
+    raw_algeria = fetch_leaderboard_for(cfgs["Algeria"]["competition"])
     if raw_algeria is None:
-        st.error("❌ Could not fetch Algeria leaderboard. Check API key or competition slug.")
+        st.error("❌ Could not fetch Algeria leaderboard.")
         return
     if not raw_algeria:
-        st.warning("⚠️ Algeria leaderboard is empty — no submissions yet.")
+        st.warning("⚠️ Algeria leaderboard is empty.")
         return
 
     algeria_entries = parse_entries(raw_algeria)
 
-    # Fetch all other stages (optional)
-    raw_sudan      = fetch_leaderboard_for(sudan_cfg["competition"])
-    raw_egypt      = fetch_leaderboard_for(egypt_cfg["competition"])
-    raw_saudi      = fetch_leaderboard_for(saudi_cfg["competition"])
-    raw_palestine  = fetch_leaderboard_for(palestine_cfg["competition"])
-
-    sudan_lookup     = {e["teamName"]: e for e in (parse_entries(raw_sudan)     if raw_sudan     else [])}
-    egypt_lookup     = {e["teamName"]: e for e in (parse_entries(raw_egypt)     if raw_egypt     else [])}
-    saudi_lookup     = {e["teamName"]: e for e in (parse_entries(raw_saudi)     if raw_saudi     else [])}
-    palestine_lookup = {e["teamName"]: e for e in (parse_entries(raw_palestine) if raw_palestine else [])}
+    # Fetch all other stages
+    raws = {s: fetch_leaderboard_for(cfgs[s]["competition"]) for s in STAGES[1:]}
+    lookups = {
+        s: {e["teamName"]: e for e in parse_entries(raws[s])} if raws[s] else {}
+        for s in STAGES[1:]
+    }
 
     created, updated = 0, 0
 
     for entry in algeria_entries:
-        team_name      = entry["teamName"]
-        algeria_mae    = entry["score"]
-        algeria_troops = mae_to_troops(algeria_mae, algeria_cfg["mae_threshold"], algeria_cfg["max_troops"])
+        team_name   = entry["teamName"]
+        algeria_cfg = cfgs["Algeria"]
+        algeria_score  = entry["score"]
+        algeria_troops = score_to_troops(algeria_score, algeria_cfg["metric"], algeria_cfg["mae_threshold"], algeria_cfg["max_troops"])
 
-        # Unlock chain: Algeria → Sudan → Egypt → Saudi Arabia → Palestine
-        unlocked_sudan = algeria_mae is not None and algeria_mae < algeria_cfg["unlock_threshold"]
+        # Build unlock chain and scores for each stage
+        scores  = {"Algeria": algeria_score}
+        troops  = {"Algeria": algeria_troops}
+        unlocked = {"Algeria": True}
 
-        def get_stage_data(unlocked, lookup, cfg):
-            if unlocked and team_name in lookup:
-                mae    = lookup[team_name]["score"]
-                troops = mae_to_troops(mae, cfg["mae_threshold"], cfg["max_troops"])
-            elif unlocked:
-                mae, troops = None, 0
+        prev_stage = "Algeria"
+        for stage in STAGES[1:]:
+            cfg = cfgs[stage]
+            prev_cfg = cfgs[prev_stage]
+            prev_unlocked = unlocked[prev_stage]
+            prev_score    = scores[prev_stage]
+
+            # Unlock this stage if previous was unlocked AND previous score crosses threshold
+            unlock = prev_unlocked and qualifies_unlock(prev_score, prev_cfg["metric"], prev_cfg["unlock_threshold"])
+            unlocked[stage] = unlock
+
+            if unlock and team_name in lookups[stage]:
+                s = lookups[stage][team_name]["score"]
+                scores[stage]  = s
+                troops[stage]  = score_to_troops(s, cfg["metric"], cfg["mae_threshold"], cfg["max_troops"])
             else:
-                mae, troops = None, 0
-            return mae, troops
+                scores[stage]  = None
+                troops[stage]  = 0
 
-        sudan_mae,     sudan_troops     = get_stage_data(unlocked_sudan, sudan_lookup, sudan_cfg)
-        unlocked_egypt    = unlocked_sudan    and sudan_mae    is not None and sudan_mae    < sudan_cfg["unlock_threshold"]
-        egypt_mae,     egypt_troops     = get_stage_data(unlocked_egypt, egypt_lookup, egypt_cfg)
-        unlocked_saudi    = unlocked_egypt    and egypt_mae    is not None and egypt_mae    < egypt_cfg["unlock_threshold"]
-        saudi_mae,     saudi_troops     = get_stage_data(unlocked_saudi, saudi_lookup, saudi_cfg)
-        unlocked_palestine = unlocked_saudi   and saudi_mae    is not None and saudi_mae    < saudi_cfg["unlock_threshold"]
-        palestine_mae, palestine_troops = get_stage_data(unlocked_palestine, palestine_lookup, palestine_cfg)
+            prev_stage = stage
 
-        # Determine current stage index
-        if unlocked_palestine:
-            current_stage_idx = 4
-        elif unlocked_saudi:
-            current_stage_idx = 3
-        elif unlocked_egypt:
-            current_stage_idx = 2
-        elif unlocked_sudan:
-            current_stage_idx = 1
-        else:
-            current_stage_idx = 0
-
-        stage_data = [
-            ("Algeria",      algeria_troops,     True),
-            ("Sudan",        sudan_troops,        unlocked_sudan),
-            ("Egypt",        egypt_troops,        unlocked_egypt),
-            ("Saudi Arabia", saudi_troops,        unlocked_saudi),
-            ("Palestine",    palestine_troops,    unlocked_palestine),
-        ]
+        # Current stage = furthest unlocked
+        current_stage_idx = max(
+            (i for i, s in enumerate(STAGES) if unlocked[s]),
+            default=0
+        )
 
         if team_name not in st.session_state.teams:
             # CREATE
@@ -274,15 +292,13 @@ def sync_from_kaggle():
                 "size":     {"Algeria": 50},
                 "abilities": {},
                 "ability_offsets": {},
-                "algeria_mae":     algeria_mae,
-                "sudan_mae":       sudan_mae,
-                "egypt_mae":       egypt_mae,
-                "saudi_mae":       saudi_mae,
-                "palestine_mae":   palestine_mae,
             }
-            for stage, troops, unlocked in stage_data[1:]:
-                if unlocked:
-                    team["history"][stage]  = troops
+            # Store scores and add unlocked stages
+            for stage in STAGES:
+                team[f"{stage.lower().replace(' ', '_')}_score"] = scores[stage]
+            for stage in STAGES[1:]:
+                if unlocked[stage]:
+                    team["history"][stage]  = troops[stage]
                     team["offsets"][stage]  = [0.0, 0.0]
                     team["rotation"][stage] = 0
                     team["size"][stage]     = 50
@@ -292,33 +308,26 @@ def sync_from_kaggle():
         else:
             # UPDATE
             team = st.session_state.teams[team_name]
-            team["history"]["Algeria"]   = algeria_troops
-            team["algeria_mae"]          = algeria_mae
-            team["sudan_mae"]            = sudan_mae
-            team["egypt_mae"]            = egypt_mae
-            team["saudi_mae"]            = saudi_mae
-            team["palestine_mae"]        = palestine_mae
-
-            for stage, troops, unlocked in stage_data[1:]:
-                if unlocked:
+            team["history"]["Algeria"] = algeria_troops
+            for stage in STAGES:
+                team[f"{stage.lower().replace(' ', '_')}_score"] = scores[stage]
+            for stage in STAGES[1:]:
+                if unlocked[stage]:
                     if stage not in team["history"]:
                         team["history"][stage]  = 0
                         team["offsets"][stage]  = [0.0, 0.0]
                         team["rotation"][stage] = 0
                         team["size"][stage]     = 50
-                    team["history"][stage] = troops
-
+                    team["history"][stage] = troops[stage]
             if current_stage_idx > team["current_idx"]:
                 team["current_idx"] = current_stage_idx
-
             updated += 1
 
-    # Fetch side quest leaderboards and build lookups
+    # Side quest leaderboards
     sq_lookups = {}
     for loc, info in SIDE_QUESTS.items():
         raw = fetch_leaderboard_for(info["competition"])
-        entries = parse_entries(raw) if raw else []
-        sq_lookups[loc] = {e["teamName"]: e for e in entries}
+        sq_lookups[loc] = {e["teamName"]: e for e in parse_entries(raw)} if raw else {}
 
     evaluate_side_quests(sq_lookups)
     st.success(f"✅ Synced — {created} new teams created, {updated} updated.")
@@ -331,156 +340,164 @@ def sync_from_kaggle():
 with st.sidebar:
     st.header("🎮 Field Marshal Console")
 
-    if st.button("🔄 Sync from Kaggle Leaderboard", use_container_width=True, type="primary"):
-        with st.spinner("Fetching leaderboards..."):
-            sync_from_kaggle()
+    # --- ADMIN LOGIN ---
+    if not st.session_state.admin_unlocked:
+        pwd = st.text_input("🔐 Admin Password", type="password", key="pwd_input")
+        if st.button("Unlock", use_container_width=True):
+            if pwd == st.secrets["admin_password"]:
+                st.session_state.admin_unlocked = True
+                st.rerun()
+            else:
+                st.error("Wrong password.")
+        st.info("👁️ Viewing in read-only mode.")
 
-    st.divider()
+    else:
+        st.success("🔓 Admin mode active")
+        if st.button("🔒 Lock", use_container_width=True):
+            st.session_state.admin_unlocked = False
+            st.rerun()
+        st.divider()
 
-    with st.expander("➕ Deploy New Piece"):
-        new_name = st.text_input("Army Name")
-        selected_logo = st.selectbox("Assign Piece Type", list(CUSTOM_LOGOS.keys()))
-        if st.button("Deploy to Map"):
-            if new_name and new_name not in st.session_state.teams:
-                st.session_state.teams[new_name] = {
-                    "current_idx": 0,
-                    "history":  {"Algeria": 500},
-                    "color":    f"#{random.randint(100, 255):02x}{random.randint(100, 255):02x}{random.randint(100, 255):02x}",
-                    "logo_url": CUSTOM_LOGOS[selected_logo],
-                    "offsets":  {"Algeria": [0.0, 0.0]},
-                    "rotation": {"Algeria": 0},
-                    "size":     {"Algeria": 50},
-                    "abilities": {},
-                    "ability_offsets": {},
-                    "algeria_mae":     None,
-                    "sudan_mae":       None,
-                    "egypt_mae":       None,
-                    "saudi_mae":       None,
-                    "palestine_mae":   None,
-                }
+        if st.button("🔄 Sync from Kaggle Leaderboard", use_container_width=True, type="primary"):
+            with st.spinner("Fetching leaderboards..."):
+                sync_from_kaggle()
+
+        st.divider()
+
+        with st.expander("➕ Deploy New Piece"):
+            new_name = st.text_input("Army Name")
+            selected_logo = st.selectbox("Assign Piece Type", list(CUSTOM_LOGOS.keys()))
+            if st.button("Deploy to Map"):
+                if new_name and new_name not in st.session_state.teams:
+                    team = {
+                        "current_idx": 0,
+                        "history":  {"Algeria": 500},
+                        "color":    f"#{random.randint(100, 255):02x}{random.randint(100, 255):02x}{random.randint(100, 255):02x}",
+                        "logo_url": CUSTOM_LOGOS[selected_logo],
+                        "offsets":  {"Algeria": [0.0, 0.0]},
+                        "rotation": {"Algeria": 0},
+                        "size":     {"Algeria": 50},
+                        "abilities": {},
+                        "ability_offsets": {},
+                    }
+                    for stage in STAGES:
+                        team[f"{stage.lower().replace(' ', '_')}_score"] = None
+                    st.session_state.teams[new_name] = team
+                    st.rerun()
+
+        # --- SIDE QUEST MANAGEMENT ---
+        st.divider()
+        with st.expander("⚔️ Side Quest Control Panel"):
+            st.caption("Activate a quest. Teams whose score crosses the threshold auto-get the ability on sync.")
+            for loc, info in SIDE_QUESTS.items():
+                cfg = st.session_state.side_quests_config[loc]
+                col_tog, col_info = st.columns([1, 3])
+                cfg["active"] = col_tog.checkbox("Open", value=cfg["active"], key=f"sq_active_{loc}")
+                col_info.markdown(f"**{loc}** — {info['ability']}")
+                col_info.caption(f"`{info['metric']}` threshold: `{info['threshold']}` | `{info['competition']}`")
+                st.divider()
+
+            if st.button("🔁 Re-evaluate Side Quests", use_container_width=True):
+                with st.spinner("Fetching side quest leaderboards..."):
+                    sq_lookups = {}
+                    for loc, info in SIDE_QUESTS.items():
+                        raw = fetch_leaderboard_for(info["competition"])
+                        sq_lookups[loc] = {e["teamName"]: e for e in parse_entries(raw)} if raw else {}
+                    evaluate_side_quests(sq_lookups)
+                st.success("Side quests re-evaluated!")
                 st.rerun()
 
-    # --- SIDE QUEST MANAGEMENT ---
-    st.divider()
-    with st.expander("⚔️ Side Quest Control Panel"):
-        st.caption("Activate a quest. Any team with MAE below the threshold in that quest's competition auto-gets the ability on sync.")
-        for loc, info in SIDE_QUESTS.items():
-            cfg = st.session_state.side_quests_config[loc]
-            col_tog, col_info = st.columns([1, 3])
-            cfg["active"] = col_tog.checkbox(
-                "Open", value=cfg["active"], key=f"sq_active_{loc}"
-            )
-            col_info.markdown(f"**{loc}** — {info['ability']}")
-            col_info.caption(f"Competition: `{info['competition']}` | MAE threshold: `{info['mae_threshold']}`")
+        if st.session_state.teams:
             st.divider()
+            t_name = st.selectbox("Select Team", list(st.session_state.teams.keys()))
+            team_data = st.session_state.teams[t_name]
 
-        if st.button("🔁 Re-evaluate Side Quests", use_container_width=True):
-            with st.spinner("Fetching side quest leaderboards..."):
-                sq_lookups = {}
-                for loc, info in SIDE_QUESTS.items():
-                    raw = fetch_leaderboard_for(info["competition"])
-                    entries = parse_entries(raw) if raw else []
-                    sq_lookups[loc] = {e["teamName"]: e for e in entries}
-                evaluate_side_quests(sq_lookups)
-            st.success("Side quests re-evaluated!")
-            st.rerun()
+            # Score info per stage
+            for stage in STAGES:
+                key = f"{stage.lower().replace(' ', '_')}_score"
+                cfg = STAGE_COMPETITIONS[stage]
+                score = team_data.get(key)
+                if score is not None:
+                    t = team_data["history"].get(stage, 0)
+                    st.caption(f"{stage} {cfg['metric']}: `{score:.4f}` → {t:,} troops")
 
-    if st.session_state.teams:
-        st.divider()
-        t_name = st.selectbox("Select Team", list(st.session_state.teams.keys()))
-        team_data = st.session_state.teams[t_name]
+            if st.button("🗑️ DISMISS TEAM", use_container_width=True):
+                del st.session_state.teams[t_name]
+                st.rerun()
 
-        # MAE info per stage
-        for key, flag, stage in [
-            ("algeria_mae",   "🇩🇿", "Algeria"),
-            ("sudan_mae",     "🇸🇩", "Sudan"),
-            ("egypt_mae",     "🇪🇬", "Egypt"),
-            ("saudi_mae",     "🇸🇦", "Saudi Arabia"),
-            ("palestine_mae", "🇵🇸", "Palestine"),
-        ]:
-            mae = team_data.get(key)
-            if mae is not None:
-                troops = team_data["history"].get(stage, 0)
-                st.caption(f"{flag} {stage} MAE: `{mae:.4f}` → {troops:,} troops")
+            # --- ABILITY MANAGEMENT ---
+            st.divider()
+            st.subheader("🌟 Manage Abilities")
+            selected_aq = st.selectbox("Choose Quest Location", list(SIDE_QUESTS.keys()))
 
-        if st.button("🗑️ DISMISS TEAM", use_container_width=True):
-            del st.session_state.teams[t_name]
-            st.rerun()
+            col_add, col_rem = st.columns(2)
+            if col_add.button("Grant Ability"):
+                team_data["abilities"][selected_aq] = {"size": 40, "circle_size": 10.0, "rotation": 0}
+                team_data["ability_offsets"][selected_aq] = [0.0, 0.0]
+                st.rerun()
 
-        # --- ABILITY MANAGEMENT ---
-        st.divider()
-        st.subheader("🌟 Manage Abilities")
-        selected_aq = st.selectbox("Choose Quest Location", list(SIDE_QUESTS.keys()))
+            if col_rem.button("Remove Ability"):
+                if selected_aq in team_data["abilities"]:
+                    del team_data["abilities"][selected_aq]
+                    st.rerun()
 
-        col_add, col_rem = st.columns(2)
-        if col_add.button("Grant Ability"):
-            team_data["abilities"][selected_aq] = {"size": 40, "circle_size": 10.0, "rotation": 0}
-            team_data["ability_offsets"][selected_aq] = [0.0, 0.0]
-            st.rerun()
-
-        if col_rem.button("Remove Ability"):
             if selected_aq in team_data["abilities"]:
-                del team_data["abilities"][selected_aq]
-                st.rerun()
+                st.caption(f"Transforming {selected_aq} Ability Icon")
+                aq_rot = st.slider(f"Rotate {selected_aq} Logo", 0, 360, int(team_data["abilities"][selected_aq].get("rotation", 0)))
+                team_data["abilities"][selected_aq]["rotation"] = aq_rot
 
-        if selected_aq in team_data["abilities"]:
-            st.caption(f"Transforming {selected_aq} Ability Icon")
-            aq_rot = st.slider(f"Rotate {selected_aq} Logo", 0, 360, int(team_data["abilities"][selected_aq].get("rotation", 0)))
-            team_data["abilities"][selected_aq]["rotation"] = aq_rot
+                aq_size = st.slider(f"Size {selected_aq}", 10, 150, int(team_data["abilities"][selected_aq]["size"]))
+                team_data["abilities"][selected_aq]["size"] = aq_size
 
-            aq_size = st.slider(f"Size {selected_aq}", 10, 150, int(team_data["abilities"][selected_aq]["size"]))
-            team_data["abilities"][selected_aq]["size"] = aq_size
+                aq_circ = st.slider(f"Zone Radius {selected_aq}", 1.0, 50.0, float(team_data["abilities"][selected_aq]["circle_size"]), step=1.0)
+                team_data["abilities"][selected_aq]["circle_size"] = aq_circ
 
-            aq_circ = st.slider(f"Zone Radius {selected_aq}", 1.0, 50.0, float(team_data["abilities"][selected_aq]["circle_size"]), step=1.0)
-            team_data["abilities"][selected_aq]["circle_size"] = aq_circ
+                off = team_data["ability_offsets"][selected_aq]
+                aq_ny = st.slider("Ability Nudge Y", -5.0, 5.0, float(off[0]), step=0.1)
+                aq_nx = st.slider("Ability Nudge X", -5.0, 5.0, float(off[1]), step=0.1)
+                team_data["ability_offsets"][selected_aq] = [aq_ny, aq_nx]
 
-            off = team_data["ability_offsets"][selected_aq]
-            aq_ny = st.slider("Ability Nudge Y", -5.0, 5.0, float(off[0]), step=0.1)
-            aq_nx = st.slider("Ability Nudge X", -5.0, 5.0, float(off[1]), step=0.1)
-            team_data["ability_offsets"][selected_aq] = [aq_ny, aq_nx]
+            # --- CORE PIECE MANAGEMENT ---
+            st.divider()
+            st.subheader("📍 Core Path Adjustment")
+            target_loc = st.selectbox("Select Visited Location:", list(team_data["history"].keys()))
 
-        # --- CORE PIECE MANAGEMENT ---
-        st.divider()
-        st.subheader("📍 Core Path Adjustment")
-        target_loc = st.selectbox("Select Visited Location:", list(team_data["history"].keys()))
+            main_rot = st.slider("Rotate Main Piece", 0, 360, int(team_data["rotation"].get(target_loc, 0)))
+            team_data["rotation"][target_loc] = main_rot
 
-        main_rot = st.slider("Rotate Main Piece", 0, 360, int(team_data["rotation"].get(target_loc, 0)))
-        team_data["rotation"][target_loc] = main_rot
+            main_size = st.slider("Scale Main Piece", 20, 150, int(team_data["size"].get(target_loc, 50)))
+            team_data["size"][target_loc] = main_size
 
-        main_size = st.slider("Scale Main Piece", 20, 150, int(team_data["size"].get(target_loc, 50)))
-        team_data["size"][target_loc] = main_size
+            core_off = team_data["offsets"].get(target_loc, [0.0, 0.0])
+            main_ny = st.slider("Main Nudge Y", -5.0, 5.0, float(core_off[0]), step=0.1)
+            main_nx = st.slider("Main Nudge X", -5.0, 5.0, float(core_off[1]), step=0.1)
+            team_data["offsets"][target_loc] = [main_ny, main_nx]
 
-        core_off = team_data["offsets"].get(target_loc, [0.0, 0.0])
-        main_ny = st.slider("Main Nudge Y", -5.0, 5.0, float(core_off[0]), step=0.1)
-        main_nx = st.slider("Main Nudge X", -5.0, 5.0, float(core_off[1]), step=0.1)
-        team_data["offsets"][target_loc] = [main_ny, main_nx]
+            team_data["history"][target_loc] = st.number_input(
+                "Troops", value=team_data["history"][target_loc], step=50
+            )
 
-        team_data["history"][target_loc] = st.number_input(
-            "Troops", value=team_data["history"][target_loc], step=50
-        )
+            col_fwd, col_bck = st.columns(2)
 
-        col_fwd, col_bck = st.columns(2)
+            if team_data["current_idx"] < len(STAGES) - 1:
+                if col_fwd.button(f"⏩ {STAGES[team_data['current_idx'] + 1]}", use_container_width=True):
+                    team_data["current_idx"] += 1
+                    new_loc = STAGES[team_data["current_idx"]]
+                    team_data["history"][new_loc] = 0
+                    team_data["offsets"][new_loc]  = [0.0, 0.0]
+                    team_data["rotation"][new_loc] = 0
+                    team_data["size"][new_loc]     = 50
+                    st.rerun()
 
-        if team_data["current_idx"] < len(STAGES) - 1:
-            if col_fwd.button(f"⏩ {STAGES[team_data['current_idx'] + 1]}", use_container_width=True):
-                team_data["current_idx"] += 1
-                new_loc = STAGES[team_data["current_idx"]]
-                team_data["history"][new_loc] = 0
-                team_data["offsets"][new_loc]  = [0.0, 0.0]
-                team_data["rotation"][new_loc] = 0
-                team_data["size"][new_loc]     = 50
-                st.rerun()
-
-        if team_data["current_idx"] > 0:
-            if col_bck.button(f"⏪ {STAGES[team_data['current_idx'] - 1]}", use_container_width=True):
-                # Remove current stage from history
-                current_loc = STAGES[team_data["current_idx"]]
-                team_data["history"].pop(current_loc, None)
-                team_data["offsets"].pop(current_loc, None)
-                team_data["rotation"].pop(current_loc, None)
-                team_data["size"].pop(current_loc, None)
-                team_data["current_idx"] -= 1
-                st.rerun()
+            if team_data["current_idx"] > 0:
+                if col_bck.button(f"⏪ {STAGES[team_data['current_idx'] - 1]}", use_container_width=True):
+                    current_loc = STAGES[team_data["current_idx"]]
+                    team_data["history"].pop(current_loc, None)
+                    team_data["offsets"].pop(current_loc, None)
+                    team_data["rotation"].pop(current_loc, None)
+                    team_data["size"].pop(current_loc, None)
+                    team_data["current_idx"] -= 1
+                    st.rerun()
 
 # ─────────────────────────────────────────────
 # MAP RENDERING
@@ -562,24 +579,20 @@ st.header("📊 Military Intelligence Dashboard")
 if st.session_state.teams:
     stats_data = []
     for name, data in st.session_state.teams.items():
-        def fmt(v): return f"{v:.4f}" if v is not None else "—"
-        def trp(s): return f"{data['history'].get(s, 0):,}"
-        stats_data.append({
-            "Army":                  name,
-            "Current Front":         STAGES[data["current_idx"]],
-            "Total Soldiers":        sum(data["history"].values()),
-            "Algeria MAE":           fmt(data.get("algeria_mae")),
-            "Algeria Troops":        trp("Algeria"),
-            "Sudan MAE":             fmt(data.get("sudan_mae")),
-            "Sudan Troops":          trp("Sudan"),
-            "Egypt MAE":             fmt(data.get("egypt_mae")),
-            "Egypt Troops":          trp("Egypt"),
-            "Saudi Arabia MAE":      fmt(data.get("saudi_mae")),
-            "Saudi Arabia Troops":   trp("Saudi Arabia"),
-            "Palestine MAE":         fmt(data.get("palestine_mae")),
-            "Palestine Troops":      trp("Palestine"),
-            "Abilities":             ", ".join(data["abilities"].keys()) if data["abilities"] else "None"
-        })
+        row = {
+            "Army":           name,
+            "Current Front":  STAGES[data["current_idx"]],
+            "Total Soldiers": sum(data["history"].values()),
+        }
+        for stage in STAGES:
+            cfg   = STAGE_COMPETITIONS[stage]
+            key   = f"{stage.lower().replace(' ', '_')}_score"
+            score = data.get(key)
+            row[f"{stage} {cfg['metric']}"]   = f"{score:.4f}" if score is not None else "—"
+            row[f"{stage} Troops"] = f"{data['history'].get(stage, 0):,}"
+        row["Abilities"] = ", ".join(data["abilities"].keys()) if data["abilities"] else "None"
+        stats_data.append(row)
+
     df = pd.DataFrame(stats_data)
 
     c1, c2, c3 = st.columns(3)
@@ -603,3 +616,4 @@ for i, (loc, info) in enumerate(SIDE_QUESTS.items()):
         st.subheader(loc)
         st.write(f"**{info['ability']}**")
         st.caption(info['desc'])
+        st.caption(f"Metric: `{info['metric']}` | Threshold: `{info['threshold']}`")
