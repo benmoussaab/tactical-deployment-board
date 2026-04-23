@@ -308,12 +308,46 @@ def sync_from_kaggle():
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# SIDEBAR
+# ─────────────────────────────────────────────
 with st.sidebar:
     st.header("🎮 Field Marshal Console")
 
+    # ==========================================
+    # 🌍 PUBLIC / READ-ONLY TOOLS 
+    # ==========================================
+    st.caption("Available to all participants")
+    
+    # Public Sync Button
+    if st.button("🔄 Sync Leaderboards from Kaggle", use_container_width=True, type="primary"):
+        with st.spinner("Fetching latest leaderboards..."):
+            sync_from_kaggle()
+
+    # Public Army Evolution Inspector
+    if st.session_state.teams:
+        st.divider()
+        st.subheader("📈 Army Evolution Tracker")
+        public_t_name = st.selectbox("Inspect Army Record", list(st.session_state.teams.keys()))
+        public_t_data = st.session_state.teams[public_t_name]
+
+        for stage in STAGES:
+            key   = f"{stage.lower().replace(' ', '_')}_score"
+            cfg   = STAGE_COMPETITIONS[stage]
+            score = public_t_data.get(key)
+            if score is not None:
+                t = public_t_data["history"].get(stage, 0)
+                st.caption(f"**{stage}** {cfg['metric']}: `{score:.4f}` ➡️ {t:,} troops")
+
+    st.divider()
+
+    # ==========================================
+    # ⚙️ ADMIN / GAME MASTER TOOLS
+    # ==========================================
     if not st.session_state.admin_unlocked:
+        st.subheader("⚙️ Game Master Tools")
         pwd = st.text_input("🔐 Admin Password", type="password", key="pwd_input")
-        if st.button("Unlock", use_container_width=True):
+        if st.button("Unlock Admin", use_container_width=True):
             if pwd == st.secrets["admin_password"]:
                 st.session_state.admin_unlocked = True
                 st.rerun()
@@ -323,15 +357,9 @@ with st.sidebar:
 
     else:
         st.success("🔓 Admin mode active")
-        if st.button("🔒 Lock", use_container_width=True):
+        if st.button("🔒 Lock Admin", use_container_width=True):
             st.session_state.admin_unlocked = False
             st.rerun()
-        st.divider()
-
-        if st.button("🔄 Sync from Kaggle Leaderboard", use_container_width=True, type="primary"):
-            with st.spinner("Fetching leaderboards..."):
-                sync_from_kaggle()
-
         st.divider()
 
         with st.expander("➕ Deploy New Piece"):
@@ -341,14 +369,14 @@ with st.sidebar:
                 if new_name and new_name not in st.session_state.teams:
                     team = {
                         "current_idx": 0,
-                        "history":     {"Algeria": 500},
-                        "casualties":  0,
-                        "color":       f"#{random.randint(100, 255):02x}{random.randint(100, 255):02x}{random.randint(100, 255):02x}",
-                        "logo_url":    CUSTOM_LOGOS[selected_logo],
-                        "offsets":     {"Algeria": [0.0, 0.0]},
-                        "rotation":    {"Algeria": 0},
-                        "size":        {"Algeria": 50},
-                        "abilities":   {},
+                        "history":  {"Algeria": 500},
+                        "casualties": 0,
+                        "color":    f"#{random.randint(100, 255):02x}{random.randint(100, 255):02x}{random.randint(100, 255):02x}",
+                        "logo_url": CUSTOM_LOGOS[selected_logo],
+                        "offsets":  {"Algeria": [0.0, 0.0]},
+                        "rotation": {"Algeria": 0},
+                        "size":     {"Algeria": 50},
+                        "abilities": {},
                         "ability_offsets": {},
                     }
                     for stage in STAGES:
@@ -356,6 +384,7 @@ with st.sidebar:
                     st.session_state.teams[new_name] = team
                     st.rerun()
 
+        # --- SIDE QUEST MANAGEMENT ---
         st.divider()
         with st.expander("⚔️ Side Quest Control Panel"):
             st.caption("Activate a quest. Teams whose score crosses the threshold auto-get the ability on sync.")
@@ -364,36 +393,19 @@ with st.sidebar:
                 col_tog, col_info = st.columns([1, 3])
                 cfg["active"] = col_tog.checkbox("Open", value=cfg["active"], key=f"sq_active_{loc}")
                 col_info.markdown(f"**{loc}** — {info['ability']}")
-                col_info.caption(f"Metric: `{info['metric']}`")   # threshold hidden
+                col_info.caption(f"`{info['metric']}` threshold: `{info['threshold']}` | `{info['competition']}`")
                 st.divider()
-
-            if st.button("🔁 Re-evaluate Side Quests", use_container_width=True):
-                with st.spinner("Fetching side quest leaderboards..."):
-                    sq_lookups = {}
-                    for loc, info in SIDE_QUESTS.items():
-                        raw = fetch_leaderboard_for(info["competition"])
-                        sq_lookups[loc] = {e["teamName"]: e for e in parse_entries(raw)} if raw else {}
-                    evaluate_side_quests(sq_lookups)
-                st.success("Side quests re-evaluated!")
-                st.rerun()
 
         if st.session_state.teams:
             st.divider()
-            t_name = st.selectbox("Select Team", list(st.session_state.teams.keys()))
+            t_name = st.selectbox("Select Team to Manage", list(st.session_state.teams.keys()), key="admin_team_select")
             team_data = st.session_state.teams[t_name]
-
-            for stage in STAGES:
-                key   = f"{stage.lower().replace(' ', '_')}_score"
-                cfg   = STAGE_COMPETITIONS[stage]
-                score = team_data.get(key)
-                if score is not None:
-                    t = team_data["history"].get(stage, 0)
-                    st.caption(f"{stage} {cfg['metric']}: `{score:.4f}` → {t:,} troops")
 
             if st.button("🗑️ DISMISS TEAM", use_container_width=True):
                 del st.session_state.teams[t_name]
                 st.rerun()
 
+            # --- ABILITY MANAGEMENT ---
             st.divider()
             st.subheader("🌟 Manage Abilities")
             selected_aq = st.selectbox("Choose Quest Location", list(SIDE_QUESTS.keys()))
@@ -403,6 +415,7 @@ with st.sidebar:
                 team_data["abilities"][selected_aq] = {"size": 40, "circle_size": 10.0, "rotation": 0}
                 team_data["ability_offsets"][selected_aq] = [0.0, 0.0]
                 st.rerun()
+
             if col_rem.button("Remove Ability"):
                 if selected_aq in team_data["abilities"]:
                     del team_data["abilities"][selected_aq]
@@ -412,32 +425,44 @@ with st.sidebar:
                 st.caption(f"Transforming {selected_aq} Ability Icon")
                 aq_rot = st.slider(f"Rotate {selected_aq} Logo", 0, 360, int(team_data["abilities"][selected_aq].get("rotation", 0)))
                 team_data["abilities"][selected_aq]["rotation"] = aq_rot
+
                 aq_size = st.slider(f"Size {selected_aq}", 10, 150, int(team_data["abilities"][selected_aq]["size"]))
                 team_data["abilities"][selected_aq]["size"] = aq_size
+
                 aq_circ = st.slider(f"Zone Radius {selected_aq}", 1.0, 50.0, float(team_data["abilities"][selected_aq]["circle_size"]), step=1.0)
                 team_data["abilities"][selected_aq]["circle_size"] = aq_circ
+
                 off = team_data["ability_offsets"][selected_aq]
                 aq_ny = st.slider("Ability Nudge Y", -5.0, 5.0, float(off[0]), step=0.1)
                 aq_nx = st.slider("Ability Nudge X", -5.0, 5.0, float(off[1]), step=0.1)
                 team_data["ability_offsets"][selected_aq] = [aq_ny, aq_nx]
 
+            # --- CORE PIECE MANAGEMENT ---
             st.divider()
             st.subheader("📍 Core Path Adjustment")
             target_loc = st.selectbox("Select Visited Location:", list(team_data["history"].keys()))
 
             main_rot = st.slider("Rotate Main Piece", 0, 360, int(team_data["rotation"].get(target_loc, 0)))
             team_data["rotation"][target_loc] = main_rot
+
             main_size = st.slider("Scale Main Piece", 20, 150, int(team_data["size"].get(target_loc, 50)))
             team_data["size"][target_loc] = main_size
+
             core_off = team_data["offsets"].get(target_loc, [0.0, 0.0])
             main_ny = st.slider("Main Nudge Y", -5.0, 5.0, float(core_off[0]), step=0.1)
             main_nx = st.slider("Main Nudge X", -5.0, 5.0, float(core_off[1]), step=0.1)
             team_data["offsets"][target_loc] = [main_ny, main_nx]
-            team_data["history"][target_loc] = st.number_input(
-                "Troops", value=team_data["history"][target_loc], step=50
-            )
+
+            # CASUALTIES CONTROLS (From earlier)
+            st.divider()
+            st.subheader("💣 Sabotage / Casualties")
+            st.caption("Permanent troop deduction.")
+            current_casualties = team_data.get("casualties", 0)
+            new_casualties = st.number_input("Set Troop Casualties (-)", value=current_casualties, step=5000)
+            team_data["casualties"] = new_casualties
 
             col_fwd, col_bck = st.columns(2)
+
             if team_data["current_idx"] < len(STAGES) - 1:
                 if col_fwd.button(f"⏩ {STAGES[team_data['current_idx'] + 1]}", use_container_width=True):
                     team_data["current_idx"] += 1
@@ -447,6 +472,7 @@ with st.sidebar:
                     team_data["rotation"][new_loc] = 0
                     team_data["size"][new_loc]     = 50
                     st.rerun()
+
             if team_data["current_idx"] > 0:
                 if col_bck.button(f"⏪ {STAGES[team_data['current_idx'] - 1]}", use_container_width=True):
                     current_loc = STAGES[team_data["current_idx"]]
@@ -456,14 +482,6 @@ with st.sidebar:
                     team_data["size"].pop(current_loc, None)
                     team_data["current_idx"] -= 1
                     st.rerun()
-
-            st.divider()
-            st.subheader("💣 Sabotage / Casualties")
-            st.caption("Deductions persist even after Kaggle sync.")
-            current_casualties = team_data.get("casualties", 0)
-            team_data["casualties"] = st.number_input(
-                "Set Troop Casualties (-)", value=current_casualties, step=5000
-            )
 
 
 # ─────────────────────────────────────────────
