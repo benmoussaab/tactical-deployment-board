@@ -79,10 +79,10 @@ COORDS = {
 }
 
 SIDE_QUESTS = {
-    "Iraq":  {"ability": "Key 🔑",   "desc": "Unlock the next challenge.", "competition": "NeuralX Side Mission: Rise of Nations", "metric": "RMSE", "threshold": st.secrets["sq_iraq"]},
-    "Libya": {"ability": "Extra 🚀",   "desc": "Add 5 submissions in any challenge.","competition": "tests",   "metric": "RMSE", "threshold": st.secrets["sq_libya"]},
-    "Syria": {"ability": "IntelSabotage 💣",    "desc": "Reduce rival troop count.",        "competition": "SYRIA-3", "metric": "RMSE", "threshold": st.secrets["sq_syria"]},
-    "Yemen": {"ability": "Intel 👁️", "desc": "Reveal 2 private score.",        "competition": "yemen_",  "metric": "MAE",   "threshold": st.secrets["sq_yemen"]},
+    "Iraq":  {"ability": "Key 🔑",   "desc": "Unlock the next challenge.", "competition": st.secrets["iraq"], "metric": "RMSE", "threshold": st.secrets["sq_iraq"]},
+    "Libya": {"ability": "Extra 🚀",   "desc": "Add 5 submissions in any challenge.","competition": st.secrets["libya"],   "metric": "RMSE", "threshold": st.secrets["sq_libya"]},
+    "Syria": {"ability": "IntelSabotage 💣",    "desc": "Reduce rival troop count.",        "competition": st.secrets["syria"], "metric": "RMSE", "threshold": st.secrets["sq_syria"]},
+    "Yemen": {"ability": "Intel 👁️", "desc": "Reveal 2 private score.",        "competition": st.secrets["yemen"],  "metric": "MAE",   "threshold": st.secrets["sq_yemen"]},
 }
 
 
