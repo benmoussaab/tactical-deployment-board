@@ -168,7 +168,7 @@ def compute_troops_for_stage(entries, metric, max_troops):
 
         for name, score in zip(names, scores_arr):
             min_score = float(np.min(scores_arr))
-            max_score = float(np.max(scores_arr))
+            max_score = float(np.percentile(scores_arr, 90))
 
 # avoid division by zero
             if abs(max_score - min_score) < 1e-9:
