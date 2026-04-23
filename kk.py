@@ -263,7 +263,7 @@ def sync_from_kaggle():
         return
     if not raw_stages["Algeria"]:
         st.warning("⚠️ Algeria leaderboard is empty.")
-        return
+        
 
     entries_by_stage = {s: parse_entries(raw_stages[s]) for s in STAGES if raw_stages[s]}
     lookup_by_stage  = {s: {e["teamName"]: e for e in entries_by_stage[s]} for s in entries_by_stage}
