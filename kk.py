@@ -39,7 +39,7 @@ STAGE_COMPETITIONS = {
     },
     "Palestine": {
         "competition":      "palestine",
-        "metric":           "WMAE",
+        "metric":           "??",
         "max_troops":       50000,
         "unlock_threshold": st.secrets["unlock_palestine"],
     },
