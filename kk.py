@@ -20,19 +20,19 @@ STAGE_COMPETITIONS = {
         "unlock_threshold": st.secrets["unlock_algeria"],
     },
     "Sudan": {
-        "competition":      "egypte",
+        "competition":      st.secrets["secod"],
         "metric":           "F1",
         "max_troops":       50000,
         "unlock_threshold": st.secrets["unlock_sudan"],
     },
     "Egypt": {
-        "competition":      "Sudan_2",
+        "competition":      st.secrets["third"],
         "metric":           "CER",
         "max_troops":       50000,
         "unlock_threshold": st.secrets["unlock_egypt"],
     },
     "Saudi Arabia": {
-        "competition":      "bike-demande-competition",
+        "competition":      st.secrets["forth"],
         "metric":           "RMSE",
         "max_troops":       50000,
         "unlock_threshold": st.secrets["unlock_saudi"],
