@@ -150,7 +150,8 @@ def compute_troops_for_stage(entries, metric, max_troops):
             troops = int(round(float(np.clip(score, 0.0, 1.0)) * max_troops))
             result[name] = troops
 
-     else:
+    else:
+        
         # Lower-is-better: compute baseline from non-outlier scores
         # Sort ascending: index 0 = best (lowest), index -1 = worst (highest)
         sorted_scores = np.sort(scores_arr)
