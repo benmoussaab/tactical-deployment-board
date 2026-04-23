@@ -50,7 +50,19 @@ CUSTOM_LOGOS = {
     "Missile Truck":"https://i.imgur.com/uGvCdKp.png",
     "Tank":         "https://i.imgur.com/TGHMPxV.png",
     "Helicopter":   "https://i.imgur.com/EcCleHZ.png",
-    "Submarine":    "https://i.imgur.com/zXC7TnD.png"
+    "Submarine":    "https://i.imgur.com/zXC7TnD.png",
+    "Drone": "https://i.imgur.com/X0UfGoB.png",
+    "Tank2": "https://i.imgur.com/pS5yX8Z.png",
+
+    "56" : "https://i.imgur.com/us8kcra.png",
+
+    "45" : "https://i.imgur.com/69RB0tH.png",
+
+    "ee": "https://i.imgur.com/KLkBDCn.png",
+
+    "tt" : "https://i.imgur.com/Yb0XuFf.png",
+
+    "rtr": "https://i.imgur.com/E5kFxhE.png
 }
 
 STAGES = ["Algeria", "Sudan", "Egypt", "Saudi Arabia", "Palestine"]
