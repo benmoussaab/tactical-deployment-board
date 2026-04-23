@@ -153,7 +153,7 @@ def compute_troops_for_stage(entries, metric, max_troops):
         sorted_scores = np.sort(scores_arr)
 
         # Only drop outliers if we have enough players
-        if len(sorted_scores) > 4:
+        if len(sorted_scores) > 2:
             trimmed = sorted_scores[:-BOTTOM_EXCLUDE]
         else:
             trimmed = sorted_scores
