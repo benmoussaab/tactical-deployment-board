@@ -425,8 +425,6 @@ with st.sidebar:
                 sync_from_kaggle()
         # -----------------------------------
 
-        with st.expander("➕ Deploy New Piece"):
-
 
         with st.expander("➕ Deploy New Piece"):
             new_name = st.text_input("Army Name")
