@@ -62,7 +62,7 @@ CUSTOM_LOGOS = {
 
     "tt" : "https://i.imgur.com/Yb0XuFf.png",
 
-    "rtr": "https://i.imgur.com/E5kFxhE.png
+    "rtr": "https://i.imgur.com/E5kFxhE.png"
 }
 
 STAGES = ["Algeria", "Sudan", "Egypt", "Saudi Arabia", "Palestine"]
