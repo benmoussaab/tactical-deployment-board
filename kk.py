@@ -36,7 +36,7 @@ STAGE_COMPETITIONS = {
         "competition":    "fmcg-sales-forecasting-challenge",
         "metric":         "WMAE",        # lower is better
         "max_troops":     50000,
-        "unlock_threshold": 1,        # unlock next stage when WMAE < 1000
+        "unlock_threshold": 5,        # unlock next stage when WMAE < 1000
     },
     "Sudan": {
         "competition":    "Egypte",
