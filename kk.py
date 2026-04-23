@@ -497,7 +497,7 @@ with st.sidebar:
             main_rot = st.slider("Rotate Main Piece", 0, 360, int(team_data["rotation"].get(target_loc, 0)))
             team_data["rotation"][target_loc] = main_rot
 
-            main_size = st.slider("Scale Main Piece", 20, 150, int(team_data["size"].get(target_loc, 50)))
+            main_size = st.slider("Scale Main Piece", 0, 150, int(team_data["size"].get(target_loc, 50)))
             team_data["size"][target_loc] = main_size
 
             core_off = team_data["offsets"].get(target_loc, [0.0, 0.0])
