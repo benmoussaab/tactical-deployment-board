@@ -512,7 +512,7 @@ with st.sidebar:
             if "circle_mult" not in team_data:
                 team_data["circle_mult"] = {}
                 
-            c_mult = team_data["circle_mult"].get(target_loc, 12.0)
+            c_mult = team_data["circle_mult"].get(target_loc, 7.0)
             new_mult = st.slider("Troop Circle Radius", 1.0, 50.0, float(c_mult), step=1.0, key=f"circ_{t_name}_{target_loc}")
             
             if new_mult != c_mult:
