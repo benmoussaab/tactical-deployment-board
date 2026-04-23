@@ -505,6 +505,16 @@ with st.sidebar:
             main_nx = st.slider("Main Nudge X", -5.0, 5.0, float(core_off[1]), step=0.1)
             team_data["offsets"][target_loc] = [main_ny, main_nx]
 
+                        # --- THE NEW CIRCLE FIX STARTS HERE ---
+            if "circle_mult" not in team_data:
+                team_data["circle_mult"] = {}
+                
+            c_mult = team_data["circle_mult"].get(target_loc, 12.0)
+            new_mult = st.slider("Troop Circle Radius", 1.0, 50.0, float(c_mult), step=1.0, key=f"circ_{t_name}_{target_loc}")
+            
+            if new_mult != c_mult:
+                team_data["circle_mult"][target_loc] = new_mult
+                save_game_state()
             # CASUALTIES CONTROLS (From earlier)
             st.divider()
             st.subheader("💣 Sabotage / Casualties")
