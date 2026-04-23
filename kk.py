@@ -89,19 +89,21 @@ SIDE_QUESTS = {
 import json
 import os
 
-# --- PERSISTENT MEMORY ---
-DB_FILE = "game_state.json"
+
+# --- GLOBAL STATE SYNC ---
+def load_game_state():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+# We reload from the file on EVERY rerun (every click/interaction)
+# This ensures User B sees User A's sync immediately after their next click
+st.session_state.teams = load_game_state()
 
 def save_game_state():
     with open(DB_FILE, "w") as f:
         json.dump(st.session_state.teams, f)
-
-if 'teams' not in st.session_state:
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            st.session_state.teams = json.load(f)
-    else:
-        st.session_state.teams = {}
 
 # --- HELPER: GET UNIQUE LOGO ---
 def get_unique_logo():
