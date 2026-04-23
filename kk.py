@@ -134,42 +134,43 @@ def compute_troops_for_stage(entries, metric, max_troops):
     valid  = [(e["teamName"], e["score"]) for e in entries if e["score"] is not None]
     if not valid:
         return {}
+
     names      = [v[0] for v in valid]
     scores_arr = np.array([v[1] for v in valid], dtype=float)
     result     = {}
 
     if metric in HIGHER_IS_BETTER:
-    for name, score in zip(names, scores_arr):
-        result[name] = int(round(float(np.clip(score, 0.0, 1.0)) * max_troops))
-else:
-    # Check for perfect tie across the entire leaderboard or single participant
-    if len(scores_arr) == 1 or np.max(scores_arr) == np.min(scores_arr):
-        for name in names:
-            result[name] = max_troops
-        return result
+        for name, score in zip(names, scores_arr):
+            result[name] = int(round(float(np.clip(score, 0.0, 1.0)) * max_troops))
 
-    sorted_scores = np.sort(scores_arr)
-
-    # THE FIX: Only drop outliers if we actually have a decent crowd (> 4 players)
-    if len(sorted_scores) > 4:
-        trimmed = sorted_scores[:-BOTTOM_EXCLUDE]
     else:
-        trimmed = sorted_scores
+        # Check for perfect tie across the entire leaderboard or single participant
+        if len(scores_arr) == 1 or np.max(scores_arr) == np.min(scores_arr):
+            for name in names:
+                result[name] = max_troops
+            return result
 
-    # Find the baseline from the worst half of the remaining players
-    half        = max(1, len(trimmed) // 2)
-    bottom_half = trimmed[-half:]
-    baseline    = float(np.median(bottom_half))
+        sorted_scores = np.sort(scores_arr)
 
-    if baseline < 1e-9:
-        baseline = float(np.max(scores_arr)) if np.max(scores_arr) > 1e-9 else 1.0
+        # Only drop outliers if we have enough players
+        if len(sorted_scores) > 4:
+            trimmed = sorted_scores[:-BOTTOM_EXCLUDE]
+        else:
+            trimmed = sorted_scores
 
-    for name, score in zip(names, scores_arr):
-        score_norm = float(np.clip(score / baseline, 0.0, 1.0))
-        result[name] = max(0, int(round((1.0 - score_norm) * max_troops)))
+        # Baseline from worst half
+        half        = max(1, len(trimmed) // 2)
+        bottom_half = trimmed[-half:]
+        baseline    = float(np.median(bottom_half))
+
+        if baseline < 1e-9:
+            baseline = float(np.max(scores_arr)) if np.max(scores_arr) > 1e-9 else 1.0
+
+        for name, score in zip(names, scores_arr):
+            score_norm = float(np.clip(score / baseline, 0.0, 1.0))
+            result[name] = max(0, int(round((1.0 - score_norm) * max_troops)))
 
     return result
-
 
    
 
