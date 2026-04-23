@@ -381,11 +381,6 @@ with st.sidebar:
     # ==========================================
     st.caption("Available to all participants")
     
-    # Public Sync Button
-    if st.button("🔄 Sync Leaderboards from Kaggle", use_container_width=True, type="primary"):
-        with st.spinner("Fetching latest leaderboards..."):
-            sync_from_kaggle()
-
     # Public Army Evolution Inspector
     if st.session_state.teams:
         st.divider()
@@ -423,6 +418,15 @@ with st.sidebar:
             st.session_state.admin_unlocked = False
             st.rerun()
         st.divider()
+
+        # --- MOVED THE SYNC BUTTON HERE! ---
+        if st.button("🔄 Sync Leaderboards from Kaggle", use_container_width=True, type="primary"):
+            with st.spinner("Fetching latest leaderboards..."):
+                sync_from_kaggle()
+        # -----------------------------------
+
+        with st.expander("➕ Deploy New Piece"):
+
 
         with st.expander("➕ Deploy New Piece"):
             new_name = st.text_input("Army Name")
