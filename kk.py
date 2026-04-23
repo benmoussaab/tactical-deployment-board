@@ -128,14 +128,23 @@ def compute_troops_for_stage(entries, metric, max_troops):
         if len(scores_arr) == 1:
             result[names[0]] = max_troops
             return result
+            
         if len(scores_arr) == 2:
-            best_idx  = int(np.argmin(scores_arr))
-            worst_idx = 1 - best_idx
-            result[names[best_idx]]  = max_troops
-            result[names[worst_idx]] = 0
+            # --- THE FIX STARTS HERE ---
+            if scores_arr[0] == scores_arr[1]:
+                # It's a perfect tie! Give them both max troops.
+                result[names[0]] = max_troops
+                result[names[1]] = max_troops
+            else:
+                best_idx  = int(np.argmin(scores_arr))
+                worst_idx = 1 - best_idx
+                result[names[best_idx]]  = max_troops
+                result[names[worst_idx]] = 0
             return result
+            # --- THE FIX ENDS HERE ---
 
         sorted_scores = np.sort(scores_arr)
+
         trimmed = sorted_scores[:-BOTTOM_EXCLUDE] if len(sorted_scores) > BOTTOM_EXCLUDE else sorted_scores
         half        = max(1, len(trimmed) // 2)
         bottom_half = trimmed[-half:]
