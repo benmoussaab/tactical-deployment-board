@@ -580,7 +580,7 @@ for name, data in st.session_state.teams.items():
         off       = data["offsets"].get(loc, [0.0, 0.0])
         rot       = data["rotation"].get(loc, 0)
         size      = data["size"].get(loc, 50)
-        c_mult    = data.get("circle_mult", {}).get(loc, 12.0)
+        c_mult    = data.get("circle_mult", {}).get(loc, 7.0)
         troops    = max(0, data["history"][loc] - casualties)
         final_pos = [COORDS[loc][0] + off[0], COORDS[loc][1] + off[1]]
 
