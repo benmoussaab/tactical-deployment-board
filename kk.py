@@ -14,7 +14,7 @@ KAGGLE_API_KEY  = st.secrets["kaggle_api_key"]
 # All thresholds are loaded from st.secrets — never hardcoded her
 STAGE_COMPETITIONS = {
     "Algeria": {
-        "competition":      "fmcg-sales-forecastin",
+        "competition":      st.secrets["first"],   
         "metric":           "WMAE",
         "max_troops":       50000,
         "unlock_threshold": st.secrets["unlock_algeria"],
