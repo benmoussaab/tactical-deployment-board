@@ -126,7 +126,7 @@ if 'side_quests_config' not in st.session_state:
 
 LOWER_IS_BETTER  = {"WMAE", "MAE", "RMSE", "CER"}
 HIGHER_IS_BETTER = {"F1"}
-BOTTOM_EXCLUDE   = 0
+BOTTOM_EXCLUDE   = 1
 
 
 def compute_troops_for_stage(entries, metric, max_troops):
