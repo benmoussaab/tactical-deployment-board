@@ -569,9 +569,9 @@ for name, data in st.session_state.teams.items():
     if len(path_coords) > 1:
         folium.PolyLine(path_coords, color=data["color"], weight=3, opacity=0.4, dash_array='10, 5').add_to(m)
 
-    casualties = data.get("casualties", 0)
+        casualties = data.get("casualties", 0)
 
-        for loc in history_locs:
+    for loc in history_locs:
         off       = data["offsets"].get(loc, [0.0, 0.0])
         rot       = data["rotation"].get(loc, 0)
         size      = data["size"].get(loc, 50)
@@ -591,6 +591,7 @@ for name, data in st.session_state.teams.items():
             icon=folium.DivIcon(html=icon_html, icon_size=(size, size), icon_anchor=(size/2, size/2)),
             tooltip=f"<b>{name}</b><br>Troops: {troops:,}"
         ).add_to(m)
+
 
     for aq_loc, aq_data in data["abilities"].items():
         off    = data["ability_offsets"].get(aq_loc, [0.0, 0.0])
