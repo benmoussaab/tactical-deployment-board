@@ -141,12 +141,12 @@ def compute_troops_for_stage(entries, metric, max_troops):
     if metric in HIGHER_IS_BETTER:
         for name, score in zip(names, scores_arr):
             result[name] = int(round(float(np.clip(score, 0.0, 1.0)) * max_troops))
-        else:
+    else:
         # Check for perfect tie across the entire leaderboard or single participant
-        if len(scores_arr) == 1 or np.max(scores_arr) == np.min(scores_arr):
-            for name in names:
-                result[name] = max_troops
-            return result
+    if len(scores_arr) == 1 or np.max(scores_arr) == np.min(scores_arr):
+        for name in names:
+            result[name] = max_troops
+        return result
 
         sorted_scores = np.sort(scores_arr)
 
