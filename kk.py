@@ -355,14 +355,20 @@ def sync_from_kaggle():
     for loc, info in SIDE_QUESTS.items():
         raw = fetch_leaderboard_for(info["competition"])
         sq_lookups[loc] = {e["teamName"]: e for e in parse_entries(raw)} if raw else {}
-    # ── Automatic Purge of Ghost Teams ───────────────
+    # ── Automatic Purge of Ghost Teams 
     # If a team is in our memory but disappeared from the Kaggle Algeria leaderboard, delete them.
+
     current_kaggle_teams = set(lookup_by_stage.get("Algeria", {}).keys())
     ghost_teams = [t_name for t_name in st.session_state.teams.keys() if t_name not in current_kaggle_teams]
     
     for ghost in ghost_teams:
         del st.session_state.teams[ghost]
+        
     evaluate_side_quests(sq_lookups)
+    
+    # --- ADD THIS LINE! This saves the synchronized map so others can see it ---
+    save_game_state()
+    
     st.success(f"✅ Synced — {created} new teams created, {updated} updated.")
     st.rerun()
 
