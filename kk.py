@@ -73,8 +73,33 @@ SIDE_QUESTS = {
     "Yemen": {"ability": "Sabotage 💣", "desc": "Reduce rival troop count.",        "competition": "yemen_",  "metric": "F1",   "threshold": st.secrets["sq_yemen"]},
 }
 
+
+import json
+import os
+
+# --- PERSISTENT MEMORY ---
+DB_FILE = "game_state.json"
+
+def save_game_state():
+    with open(DB_FILE, "w") as f:
+        json.dump(st.session_state.teams, f)
+
 if 'teams' not in st.session_state:
-    st.session_state.teams = {}
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r") as f:
+            st.session_state.teams = json.load(f)
+    else:
+        st.session_state.teams = {}
+
+# --- HELPER: GET UNIQUE LOGO ---
+def get_unique_logo():
+    used_logos = [t["logo_url"] for t in st.session_state.teams.values()]
+    available_logos = [url for url in CUSTOM_LOGOS.values() if url not in used_logos]
+    if not available_logos:
+        # If all 5 logos are used, just pick randomly again
+        available_logos = list(CUSTOM_LOGOS.values()) 
+    return random.choice(available_logos)
+
 if 'admin_unlocked' not in st.session_state:
     st.session_state.admin_unlocked = False
 if 'side_quests_config' not in st.session_state:
