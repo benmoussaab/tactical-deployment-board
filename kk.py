@@ -132,6 +132,7 @@ BOTTOM_EXCLUDE   = 1
 def compute_troops_for_stage(entries, metric, max_troops):
     metric = metric.upper()
     valid  = [(e["teamName"], e["score"]) for e in entries if e["score"] is not None]
+    
     if not valid:
         return {}
 
@@ -152,41 +153,28 @@ def compute_troops_for_stage(entries, metric, max_troops):
 
         sorted_scores = np.sort(scores_arr)
 
-        # Only drop outliers if we have enough players
-        if len(sorted_scores) > 5:
+        # Wait until there are at least 6 participants before dropping the worst players.
+        # This prevents the "2nd place gets 0 troops" bug in small lobbies!
+        if len(sorted_scores) >= 6:
             trimmed = sorted_scores[:-BOTTOM_EXCLUDE]
+        elif len(sorted_scores) >= 4:
+            # If 4 or 5 players, just drop the 1 absolute worst outlier
+            trimmed = sorted_scores[:-1]
         else:
+            # 3 or fewer players, keep everyone to establish a fair curve
             trimmed = sorted_scores
 
-        # Baseline from worst half
+        # Baseline from worst half of the trimmed players
         half        = max(1, len(trimmed) // 2)
         bottom_half = trimmed[-half:]
         baseline    = float(np.median(bottom_half))
-        
+
         if baseline < 1e-9:
             baseline = float(np.max(scores_arr)) if np.max(scores_arr) > 1e-9 else 1.0
-            min_score = float(np.min(scores_arr))
-            max_score = float(np.percentile(scores_arr, 90)) 
+
         for name, score in zip(names, scores_arr):
-            score_clamped = min(score, max_score)
-
-            score_norm = (score_clamped - min_score) / (max_score - min_score)
-
-    # ✅ HARD CLAMP (critical)
-            score_norm = float(np.clip(score_norm, 0.0, 1.0))
-
-            result[name] = int(round((1.0 - score_norm) * max_troops))
-
-# avoid division by zero
-            if abs(max_score - min_score) < 1e-9:
-                for name in names:
-                    result[name] = max_troops
-                return result
-
-            for name, score in zip(names, scores_arr):
-                score_norm = (score - min_score) / (max_score - min_score)
-                result[name] = int(round((1.0 - score_norm) * max_troops))
-            
+            score_norm = float(np.clip(score / baseline, 0.0, 1.0))
+            result[name] = max(0, int(round((1.0 - score_norm) * max_troops)))
 
     return result
 
