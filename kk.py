@@ -571,14 +571,15 @@ for name, data in st.session_state.teams.items():
 
     casualties = data.get("casualties", 0)
 
-    for loc in history_locs:
+        for loc in history_locs:
         off       = data["offsets"].get(loc, [0.0, 0.0])
         rot       = data["rotation"].get(loc, 0)
         size      = data["size"].get(loc, 50)
+        c_mult    = data.get("circle_mult", {}).get(loc, 12.0)
         troops    = max(0, data["history"][loc] - casualties)
         final_pos = [COORDS[loc][0] + off[0], COORDS[loc][1] + off[1]]
 
-        folium.Circle(location=final_pos, radius=troops * 12,
+        folium.Circle(location=final_pos, radius=troops * c_mult,
                       color=data["color"], fill=True, fill_opacity=0.15).add_to(m)
         icon_html = (
             f'<div style="transform: rotate({rot}deg); width: {size}px; height: {size}px; '
