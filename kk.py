@@ -162,10 +162,11 @@ def compute_troops_for_stage(entries, metric, max_troops):
         half        = max(1, len(trimmed) // 2)
         bottom_half = trimmed[-half:]
         baseline    = float(np.median(bottom_half))
-
+        
         if baseline < 1e-9:
             baseline = float(np.max(scores_arr)) if np.max(scores_arr) > 1e-9 else 1.0
-
+            min_score = float(np.min(scores_arr))
+            max_score = float(np.percentile(scores_arr, 90)) 
         for name, score in zip(names, scores_arr):
             score_clamped = min(score, max_score)
 
