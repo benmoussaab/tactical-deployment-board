@@ -366,6 +366,7 @@ def sync_from_kaggle():
             team = {
                 "current_idx": current_stage_idx,
                 "history":  {"Algeria": troops["Algeria"]},
+                "casualties": 0,
                 "color":    f"#{random.randint(100,255):02x}{random.randint(100,255):02x}{random.randint(100,255):02x}",
                 "logo_url": CUSTOM_LOGOS[logo_key],
                 "offsets":  {"Algeria": [0.0, 0.0]},
@@ -450,6 +451,7 @@ with st.sidebar:
                     team = {
                         "current_idx": 0,
                         "history":  {"Algeria": 500},
+                        "casualties": 0,
                         "color":    f"#{random.randint(100, 255):02x}{random.randint(100, 255):02x}{random.randint(100, 255):02x}",
                         "logo_url": CUSTOM_LOGOS[selected_logo],
                         "offsets":  {"Algeria": [0.0, 0.0]},
@@ -575,6 +577,14 @@ with st.sidebar:
                     team_data["size"].pop(current_loc, None)
                     team_data["current_idx"] -= 1
                     st.rerun()
+            # Casualties Manager
+            st.divider()
+            st.subheader("💣 Sabotage / Casualties")
+            st.caption("These deductions will permanently lower total troops, even after Kaggle refreshes.")
+            
+            current_casualties = team_data.get("casualties", 0)
+            new_casualties = st.number_input("Set Troop Casualties (-)", value=current_casualties, step=5000)
+            team_data["casualties"] = new_casualties
 
 
 # ─────────────────────────────────────────────
@@ -650,6 +660,7 @@ st_folium(m, width=1200, height=650)
 
 
 # ─────────────────────────────────────────────
+# ─────────────────────────────────────────────
 # STATISTICS DASHBOARD
 # ─────────────────────────────────────────────
 st.divider()
@@ -658,13 +669,24 @@ st.header("📊 Military Intelligence Dashboard")
 if st.session_state.teams:
     stats_data = []
     for name, data in st.session_state.teams.items():
+        
+        # Calculate Troops minus Casualties
+        base_troops = sum(data["history"].values())
+        casualties = data.get("casualties", 0)
+        final_total = max(0, base_troops - casualties) # Prevent negative troops
+
         row = {
             "Army":           name,
             "Current Front":  STAGES[data["current_idx"]],
-            "Total Soldiers": sum(data["history"].values()),
+            "Base Troops":    base_troops,
+            "Casualties":     f"-{casualties:,}" if casualties > 0 else "0",
+            "Total Soldiers": final_total,  # <--- The discounted final number
         }
+        
+        # ... (keep the rest of the loop below exactly as it is) ...
         for stage in STAGES:
             cfg   = STAGE_COMPETITIONS[stage]
+
             key   = f"{stage.lower().replace(' ', '_')}_score"
             score = data.get(key)
             row[f"{stage} {cfg['metric']}"] = f"{score:.4f}" if score is not None else "—"
