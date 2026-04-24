@@ -81,7 +81,7 @@ COORDS = {
 SIDE_QUESTS = {
     "Iraq":  {"ability": "Key 🔑",   "desc": "Unlock the next challenge.", "competition": st.secrets["iraq"], "metric": "MAE", "threshold": st.secrets["sq_iraq"]},
     "Libya": {"ability": "Sabotage 💣",   "desc": "Reduce rival troop count.","competition": st.secrets["libya"],   "metric": "RMSE", "threshold": st.secrets["sq_libya"]},
-    "Syria": {"ability": "Sabotage 💣",    "desc": "Reduce rival troop count.",        "competition": st.secrets["syria"], "metric": "RMSE", "threshold": st.secrets["sq_syria"]},
+    "Syria": {"ability": "Sabotage 💣",    "desc": "Reduce rival troop count.",        "competition": st.secrets["syria"], "metric": "F1", "threshold": st.secrets["sq_syria"]},
     "Yemen": {"ability": "Intel 👁️", "desc": "Reveal 2 private score.",        "competition": st.secrets["yemen"],  "metric": "RMSE",   "threshold": st.secrets["sq_yemen"]},
 }
 
